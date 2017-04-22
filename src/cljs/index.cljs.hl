@@ -1,0 +1,81 @@
+(page "index.html"
+      (:require
+       [hoplon.reveal :refer [slideshow chapter slide quicklist]]))
+
+
+;;
+;; from https://github.com/pmbauer/binary-clock
+;;
+
+(defn n->bits
+  "number => [[base-10-digit bit-list]+]
+  e.g 53 => [[5 [false true false false]] [3 [true false false false]]]"
+  [n]
+  (mapv (fn [digit]
+          {:digit digit
+           :bits (mapv #(bit-test digit %) [3 2 1 0])})
+        [(quot n 10) (mod n 10)]))
+
+(defn time->model
+  "binary cock model, takes a js/Date"
+  [time]
+  {:hours   (n->bits (.getHours time))
+   :minutes (n->bits (.getMinutes time))
+   :seconds (n->bits (.getSeconds time))})
+
+
+(defelem led
+  [{:keys [on]}]
+  (div :class (cell= {:unit true :on on :off (not on)})))
+
+(defelem column
+  [{:keys [model]}]
+  (div :class "col"
+       (conj (->> (range (count (:bits @model)))
+                  (mapv #(cell= (nth (:bits model) %)))
+                  (mapv (partial led :on)))
+             (div :class "unit" (text "~{(:digit model)}")))))
+
+(defelem column-pair
+  [{:keys [model]}]
+  (div :class "colpair"
+       (column :model (cell= (first model)))
+       (column :model (cell= (second model)))))
+
+(defelem clock
+  [{:keys [time legend] :or {legend [8 4 2 1]}}]
+  (div
+   (div :class "col legend" (map #(div :class "unit" (str %)) legend))
+   (column-pair :model (cell= (:hours time)))
+   (column-pair :model (cell= (:minutes time)))
+   (column-pair :model (cell= (:seconds time)))))
+
+(defn periodic-cell [thunk interval]
+  (with-let [v (cell (thunk))]
+    (js/setInterval #(reset! v (thunk)) interval)))
+
+
+;;
+;;
+;;
+
+(slideshow :theme "sky"
+           (link :rel "stylesheet" :href "clock.css")
+
+           (chapter :title [(h2 "Quicklist")
+                            (hr)
+                            (h4 "subtitle")]
+                    (slide
+                     (quicklist
+                      "item 1"
+                      "item 2"
+                      "item 3"
+                      "item 4")))
+
+           (chapter :title [(h2 "Binary Clock")
+                            (hr)
+                            (let [model (periodic-cell #(time->model (js/Date.)) 1000)]
+                              (clock :time model))])
+
+
+           )
